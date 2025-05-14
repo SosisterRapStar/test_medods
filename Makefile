@@ -25,7 +25,10 @@ up: load_env
 reset: load_env
 	@GOOSE_DRIVER=$(GOOSE_DRIVER) GOOSE_DBSTRING=$(GOOSE_DBSTRING) goose -dir=$(MIGRATION_PATH) reser
 
-start_db: load_env
-	@docker compose -f docker-compose-db.yaml up -d                                              
+start-db: load_env
+	@docker compose -f docker-compose-db.yaml up -d    
+
+stop-db: load_env
+	@docker compose -f docker-compose-db.yaml down
 
 .PHONY: set-deps migrate load_env start_db reset up sb-status

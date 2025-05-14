@@ -1,10 +1,18 @@
 package main
 
-import "github.com/sosisterrapstar/test_medods"
+import (
+	"log"
+)
 
+// Not Implemented
+func bootsrap() error {
+	return nil
+}
+
+// Abstract
 func main() {
-	config := test_medods.MustLoad()
-	logger := test_medods.SetupLogger()
 
-	server := Ne
+	if err := bootsrap(); err != nil {
+		log.Fatal(err)
+	}
 }
