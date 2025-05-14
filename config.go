@@ -1,32 +1,55 @@
 package test_medods
 
 import (
+	"log"
 	"log/slog"
 	"os"
+
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
-type ServerConfig struct {
-	Addr string
+type Server struct {
+	Addr string `yaml:"address" env-required:"true"`
+}
+
+type Postgres struct {
+	Url      string `yaml:"url" env-required:"true"`
+	MaxConns int    `yaml:"max_conns" env-default:"10"`
+	MinConns int    `yaml:"min_conns" env-default:"3"`
+}
+
+type Storage struct {
+	Postgres `yaml:"postgres"`
 }
 
 type Config struct {
-	Server ServerConfig
+	Env     string `yaml:"env" env-default:"local"`
+	Server  `yaml:"http_server"`
+	Storage `yaml:"storage"`
 }
 
-func NewConfig() *Config {
-	return &Config{}
+func MustLoad() *Config {
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		log.Fatal("Config path is not set")
+	}
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		log.Fatalf("Config file %s doesn't exist", configPath)
+	}
+
+	var cfg Config
+
+	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+		log.Fatal("Can not read config")
+	}
+
+	return &cfg
 }
 
-func setupLogger() *slog.Logger {
-
+func SetupLogger() *slog.Logger {
 	log := slog.New(
 		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true}),
 	)
 	return log
-}
-
-var logger = setupLogger()
-
-func GetLogger() *slog.Logger {
-	return logger
 }
