@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sosisterrapstar/test_medods"
@@ -84,7 +86,16 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 	}
 	defer tx.Rollback(ctx)
 
-	tx.Exec(ctx, "")
+	userIdInUUID, err := uuid.Parse(userId)
+	if err != nil {
+		a.logger.Error(fmt.Sprintf("Error occured during parsing user id %s id to uuid", userId))
+		return nil, &core.InternalError{Err: errors.New("Server error")}
+	}
+	token_info := core.TokenInfo{
+		UserId: userIdInUUID,
+		Id: uuid.New()
+	}
+	tx.Exec(ctx, "INSERT INTO auth.tokens (token_id, user_id, sign_hash, issued_to_ua, issued_to_ip, is_revoked)")
 	return &Tokens{Access: access, Refresh: refresh}, nil
 }
 
