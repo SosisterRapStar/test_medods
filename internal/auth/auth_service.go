@@ -40,10 +40,16 @@ type AuthService struct {
 
 // We can logout user before his token got expired so we should check if a user was logout but still has active access token
 func (a *AuthService) checkIfUserLoggedOut(ctx context.Context, userId string, issuedAt *jwt.NumericDate) (bool, error) {
-
+	conn, err := a.Pool.Acquire(ctx)
+	if err != nil {
+		logger.Error("Error occured getting connection")
+		return false, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	defer conn.Release()
+	query := 
 }
 
-func (a *AuthService) AuthenticateUser(tokenString string) (string, error) {
+func (a *AuthService) AuthenticateUser(ctx context.Context, tokenString string) (string, error) {
 	token, err := a.validateToken(tokenString, a.c.Auth.SecretKey)
 	if err != nil {
 		return "", err
@@ -59,9 +65,9 @@ func (a *AuthService) AuthenticateUser(tokenString string) (string, error) {
 		a.logger.Error("Error occured during getting issuedAt time from token")
 		return "", &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	isLoggedOut, _ := a.checkIfUserLoggedOut(context.Background(), userId, issuedAt)
+	isLoggedOut, _ := a.checkIfUserLoggedOut(ctx, userId, issuedAt)
 	if isLoggedOut {
-		return _, &core.AuthorizationError{Err: errors.New("can not authorize user")}
+		return "", &core.ForbiddenError{Err: errors.New("access to this recource is denied")}
 	}
 	return userId, nil
 }
@@ -140,6 +146,13 @@ func (a *AuthService) saveRefreshToken(ctx context.Context, refresh string, user
 		a.logger.Error(fmt.Sprintf("Failed to execute query %s", query))
 		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		a.logger.Error("Failed to commit transaction", "error", err)
+		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+
 	return nil
 
 }
