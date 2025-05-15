@@ -8,13 +8,11 @@ CREATE TABLE auth.users(
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE TABLE auth.tokens(
-    user_id UUID references auth.users(user_id) ON DELETE CASCADE,
     token_id UUID PRIMARY KEY,
+    user_id UUID references auth.users(user_id) ON DELETE CASCADE,
     token TEXT,
     issued_to_UA TEXT,
-    issued_to_IP TEXT, 
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    issued_to_IP TEXT
 );
 CREATE INDEX idx_foreign_key_users ON auth.tokens(user_id);
 SET search_path TO auth, public; 
