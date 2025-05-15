@@ -10,7 +10,7 @@ CREATE TABLE auth.users(
 CREATE TABLE auth.tokens(
     token_id UUID PRIMARY KEY,
     user_id UUID references auth.users(user_id) ON DELETE CASCADE,
-    token TEXT,
+    sign_hash TEXT,
     issued_to_UA TEXT,
     issued_to_IP TEXT
 );
