@@ -8,6 +8,12 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
+type Auth struct {
+	SecretKey                       string `yaml:"secret_key" env-required:"true"`
+	AccessTokenExpirePeriodMinutes  int    `yaml:"access_expire_period_minutes" env-default:"3"`
+	RefreshTokenExpirePeriodMinutes int    `yaml:"refresh_token_expire_period_minutes" env-default:"10"`
+}
+
 type Server struct {
 	Addr string `yaml:"address" env-required:"true"`
 }
@@ -26,6 +32,7 @@ type Config struct {
 	Env     string `yaml:"env" env-default:"local"`
 	Server  `yaml:"http_server"`
 	Storage `yaml:"storage"`
+	Auth    `yaml:"auth"`
 }
 
 func MustLoad() *Config {

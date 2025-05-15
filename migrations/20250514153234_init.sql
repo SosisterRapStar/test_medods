@@ -23,7 +23,7 @@ SET search_path TO auth, public;
 -- +goose Down
 -- +goose StatementBegin
 DROP INDEX IF EXISTS idx_foreign_key_users;
-DROP TABLE IF EXISTS auth.users;
 DROP TABLE IF EXISTS auth.tokens;
+DROP TABLE IF EXISTS auth.users;
 DROP SCHEMA IF EXISTS auth;
 -- +goose StatementEnd
