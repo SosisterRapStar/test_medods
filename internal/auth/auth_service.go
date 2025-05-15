@@ -14,6 +14,7 @@ import (
 	"github.com/sosisterrapstar/test_medods"
 	"github.com/sosisterrapstar/test_medods/internal/core"
 	"github.com/sosisterrapstar/test_medods/internal/postgres"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func startTransaction(ctx context.Context, conn *pgxpool.Conn, isolation pgx.TxIsoLevel) (pgx.Tx, error) {
@@ -35,11 +36,7 @@ type AuthService struct {
 	*postgres.PostgresConnection
 }
 
-func (a *AuthService) validateExpireTime() {
-
-}
-
-func (a *AuthService) validateToken() {
+func (a *AuthService) parseToken(token string) {
 
 }
 
@@ -57,7 +54,55 @@ func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secret
 	return jwt, nil
 }
 
+func (a *AuthService) getHashFromSign(jwtSign string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(jwtSign), bcrypt.MinCost)
+	return string(bytes), err
+}
+
 // executed by /token{id}
+
+func (a *AuthService) saveRefreshToken(ctx context.Context, refresh string, userId string, userAgent string, userIp string) error {
+	conn, err := a.Pool.Acquire(ctx)
+	if err != nil {
+		a.logger.Error("Error occured during db connection acquiring token creating")
+		return &core.InternalError{Err: errors.New("Server error")}
+	}
+
+	defer conn.Release()
+
+	tx, err := startTransaction(ctx, conn, pgx.ReadCommitted)
+	if err != nil {
+		a.logger.Error("Error occured during starting the transaction in db")
+		return &core.InternalError{Err: errors.New("Server error")}
+	}
+	defer tx.Rollback(ctx)
+
+	userIdInUUID, err := uuid.Parse(userId)
+	if err != nil {
+		a.logger.Error(fmt.Sprintf("Error occured during parsing user id %s id to uuid", userId))
+		return &core.InternalError{Err: errors.New("Server error")}
+	}
+	signHash, err := a.getHashFromSign(refresh)
+	if err != nil {
+		a.logger.Error(fmt.Sprintf("Error occured during bcrypt hashing of refresh JWT sign"))
+		return &core.InternalError{Err: errors.New("Server error")}
+	}
+	token_info := core.TokenInfo{
+		UserId:     userIdInUUID,
+		Id:         uuid.New(),
+		SignHash:   signHash,
+		IssuedToUA: userAgent,
+		IssuedToIP: userIp,
+		IsRevoked:  false,
+	}
+	query := "INSERT INTO auth.tokens (token_id, user_id, sign_hash, issued_to_ua, issued_to_ip, is_revoked) VALUES ($1, $2, $3, $4, $5, $6)"
+	if _, err = tx.Exec(ctx, query, token_info.Id, token_info.UserId, token_info.SignHash, token_info.IssuedToUA, token_info.IssuedToIP, token_info.IsRevoked); err != nil {
+		a.logger.Error(fmt.Sprintf("Failed to execute query %s", query))
+		return &core.InternalError{Err: errors.New("Server error")}
+	}
+	return nil
+
+}
 
 func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*Tokens, error) {
 	access, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
@@ -71,31 +116,9 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 		return nil, &core.InternalError{Err: errors.New("Server error")}
 	}
 
-	conn, err := a.Pool.Acquire(ctx)
-	if err != nil {
-		a.logger.Error("Error occured during db connection acquiring token creating")
-		return nil, &core.InternalError{Err: errors.New("Server error")}
+	if err := a.saveRefreshToken(ctx, refresh, userId, userAgent, userIp); err != nil {
+		return nil, err
 	}
-
-	defer conn.Release()
-
-	tx, err := startTransaction(ctx, conn, pgx.ReadCommitted)
-	if err != nil {
-		a.logger.Error("Error occured during starting the transaction in db")
-		return nil, &core.InternalError{Err: errors.New("Server error")}
-	}
-	defer tx.Rollback(ctx)
-
-	userIdInUUID, err := uuid.Parse(userId)
-	if err != nil {
-		a.logger.Error(fmt.Sprintf("Error occured during parsing user id %s id to uuid", userId))
-		return nil, &core.InternalError{Err: errors.New("Server error")}
-	}
-	token_info := core.TokenInfo{
-		UserId: userIdInUUID,
-		Id: uuid.New()
-	}
-	tx.Exec(ctx, "INSERT INTO auth.tokens (token_id, user_id, sign_hash, issued_to_ua, issued_to_ip, is_revoked)")
 	return &Tokens{Access: access, Refresh: refresh}, nil
 }
 
