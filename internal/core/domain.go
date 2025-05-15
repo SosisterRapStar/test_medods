@@ -14,7 +14,7 @@ type User struct {
 type TokenInfo struct {
 	UserId     uuid.UUID
 	Id         uuid.UUID
-	Content    string
+	SignHash   string
 	IssuedToUA string
 	IssuedToIP string
 	IsRevoked  bool
