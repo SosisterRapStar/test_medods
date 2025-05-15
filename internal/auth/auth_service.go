@@ -2,14 +2,25 @@ package auth
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sosisterrapstar/test_medods"
+	"github.com/sosisterrapstar/test_medods/internal/core"
 	"github.com/sosisterrapstar/test_medods/internal/postgres"
 )
+
+func startTransaction(ctx context.Context, conn *pgxpool.Conn, isolation pgx.TxIsoLevel) (pgx.Tx, error) {
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: isolation})
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
 
 type Tokens struct {
 	Access  string
@@ -49,18 +60,31 @@ func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secret
 func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*Tokens, error) {
 	access, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
 	if err != nil {
-		return nil, fmt.Errorf("Error occured during access token creating")
+		a.logger.Error("Error occured during access token creating")
+		return nil, &core.InternalError{Err: errors.New("Server error")}
 	}
 	refresh, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
 	if err != nil {
-		return nil, fmt.Errorf("Error occured during access refresh token creating")
+		a.logger.Error("Error occured during refresh token creating")
+		return nil, &core.InternalError{Err: errors.New("Server error")}
 	}
 
 	conn, err := a.Pool.Acquire(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Error occured during")
+		a.logger.Error("Error occured during db connection acquiring token creating")
+		return nil, &core.InternalError{Err: errors.New("Server error")}
 	}
 
+	defer conn.Release()
+
+	tx, err := startTransaction(ctx, conn, pgx.ReadCommitted)
+	if err != nil {
+		a.logger.Error("Error occured during starting the transaction in db")
+		return nil, &core.InternalError{Err: errors.New("Server error")}
+	}
+	defer tx.Rollback(ctx)
+
+	tx.Exec(ctx, "")
 	return &Tokens{Access: access, Refresh: refresh}, nil
 }
 
