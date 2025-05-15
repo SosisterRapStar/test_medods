@@ -38,9 +38,9 @@ type AuthService struct {
 	*postgres.PostgresConnection
 }
 
+// We can logout user before his token got expired so we should check if a user was logout but still has active access token
 func (a *AuthService) checkIfUserLoggedOut(ctx context.Context, userId string, issuedAt *jwt.NumericDate) (bool, error) {
-	// not implemented
-	return nil, nil
+
 }
 
 func (a *AuthService) AuthenticateUser(tokenString string) (string, error) {
@@ -51,9 +51,18 @@ func (a *AuthService) AuthenticateUser(tokenString string) (string, error) {
 	claims := token.Claims
 	userId, err := claims.GetSubject()
 	if err != nil {
+		a.logger.Error("Error occured during getting user Id from token")
 		return "", &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-
+	issuedAt, err := claims.GetIssuedAt()
+	if err != nil {
+		a.logger.Error("Error occured during getting issuedAt time from token")
+		return "", &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	isLoggedOut, _ := a.checkIfUserLoggedOut(context.Background(), userId, issuedAt)
+	if isLoggedOut {
+		return _, &core.AuthorizationError{Err: errors.New("can not authorize user")}
+	}
 	return userId, nil
 }
 

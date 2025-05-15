@@ -11,6 +11,10 @@ type Auth interface {
 
 // Service Layer Errors
 
+type ForbiddenError struct {
+	Err error
+}
+
 type InternalError struct {
 	Err error
 }
@@ -21,6 +25,10 @@ type AuthorizationError struct {
 
 type RequestError struct {
 	Err error
+}
+
+func (e *ForbiddenError) Error() string {
+	return e.Err.Error()
 }
 
 func (e *RequestError) Error() string {
