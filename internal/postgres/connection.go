@@ -26,7 +26,7 @@ func (pc *PostgresConnection) Open(logger *slog.Logger, c *test_medods.Config) {
 		log.Fatal("Error creating postgresql conn pool")
 	}
 	pc.Pool = connPool
-	logger.Debug("Created and opend postgres pool")
+	logger.Debug("Created and opened postgres pool")
 }
 
 func (pc *PostgresConnection) Close(logger *slog.Logger) {

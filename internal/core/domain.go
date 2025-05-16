@@ -7,8 +7,11 @@ import (
 )
 
 type User struct {
-	Id         string
-	LastLogout time.Time
+	Id         uuid.UUID
+	Name       string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	LastLogout *time.Time
 }
 
 type TokenInfo struct {

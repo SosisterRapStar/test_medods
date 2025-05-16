@@ -38,44 +38,37 @@ type AuthService struct {
 	*postgres.PostgresConnection
 }
 
-// We can logout user before his token got expired so we should check if a user was logout but still has active access token
-func (a *AuthService) checkIfUserLoggedOut(ctx context.Context, userId string, issuedAt *jwt.NumericDate) (bool, error) {
-	conn, err := a.Pool.Acquire(ctx)
-	if err != nil {
-		logger.Error("Error occured getting connection")
-		return false, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
-	}
-	defer conn.Release()
-	query := 
-}
-
-func (a *AuthService) AuthenticateUser(ctx context.Context, tokenString string) (string, error) {
+func (a *AuthService) AuthenticateUser(ctx context.Context, tokenString string) (*core.User, error) {
 	token, err := a.validateToken(tokenString, a.c.Auth.SecretKey)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	claims := token.Claims
 	userId, err := claims.GetSubject()
 	if err != nil {
 		a.logger.Error("Error occured during getting user Id from token")
-		return "", &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
 	issuedAt, err := claims.GetIssuedAt()
 	if err != nil {
 		a.logger.Error("Error occured during getting issuedAt time from token")
-		return "", &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	isLoggedOut, _ := a.checkIfUserLoggedOut(ctx, userId, issuedAt)
+	user, err := a.getUserFromDb(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	isLoggedOut, _ := a.checkIfUserLoggedOut(user.LastLogout, issuedAt)
 	if isLoggedOut {
-		return "", &core.ForbiddenError{Err: errors.New("access to this recource is denied")}
+		return nil, &core.ForbiddenError{Err: errors.New("access to this recource is denied")}
 	}
-	return userId, nil
+	return user, nil
 }
 
 func (a *AuthService) validateToken(tokenString string, key string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			a.logger.Warn(fmt.Sprintf("Strange activity token can be changed on client side %s"))
+			a.logger.Warn("Strange activity token can be changed on client side")
 			return nil, errors.New("unexpected sign method token invalid")
 		}
 		return []byte(key), nil
@@ -84,6 +77,55 @@ func (a *AuthService) validateToken(tokenString string, key string) (*jwt.Token,
 		return nil, &core.AuthorizationError{Err: errors.New("can not authorize user")}
 	}
 	return token, err
+}
+
+// TODO: вынести все acquire в отдельнюу функцию
+func (a *AuthService) getUserFromDb(ctx context.Context, userId string) (*core.User, error) {
+	conn, err := a.Pool.Acquire(ctx)
+	defer conn.Release()
+	if err != nil {
+		a.logger.Error("Error occured getting connection ")
+		return nil, err
+	}
+	query := "SELECT u.user_id, u.name, u.created_at, u.updated_at, u.last_logout FROM auth.users u WHERE u.user_id = $1"
+	var user core.User
+	err = conn.QueryRow(ctx, query, userId).Scan(&user.Id, &user.Name, &user.CreatedAt, &user.UpdatedAt, &user.LastLogout)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			a.logger.Warn(fmt.Sprintf("User doesn't exists but trying to use token %s", userId))
+			return nil, &core.ForbiddenError{Err: errors.New("resource forbidden")}
+		}
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	return &user, nil
+
+}
+
+// We can logout user before his token got expired so we should check if a user was logout but still has active access token
+func (a *AuthService) checkIfUserLoggedOut(lastLogout *time.Time, issuedAt *jwt.NumericDate) (bool, error) {
+	if lastLogout == nil {
+		return false, nil
+	}
+
+	return lastLogout.After(issuedAt.Time), nil
+}
+
+func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*Tokens, error) {
+	access, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
+	if err != nil {
+		a.logger.Error("Error occured during access token creating")
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	refresh, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
+	if err != nil {
+		a.logger.Error("Error occured during refresh token creating")
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+	if err := a.saveRefreshToken(ctx, refresh, userId, userAgent, userIp); err != nil {
+		return nil, err
+	}
+	return &Tokens{Access: access, Refresh: refresh}, nil
 }
 
 func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secretKey string) (string, error) {
@@ -99,13 +141,6 @@ func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secret
 	}
 	return jwt, nil
 }
-
-func (a *AuthService) getHashFromSign(jwtSign string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(jwtSign), bcrypt.MinCost)
-	return string(bytes), err
-}
-
-// executed by /token{id}
 
 func (a *AuthService) saveRefreshToken(ctx context.Context, refresh string, userId string, userAgent string, userIp string) error {
 	conn, err := a.Pool.Acquire(ctx)
@@ -152,34 +187,48 @@ func (a *AuthService) saveRefreshToken(ctx context.Context, refresh string, user
 		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
 
-
 	return nil
-
 }
 
-func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*Tokens, error) {
-	access, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
-	if err != nil {
-		a.logger.Error("Error occured during access token creating")
-		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
-	}
-	refresh, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
-	if err != nil {
-		a.logger.Error("Error occured during refresh token creating")
-		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
-	}
-
-	if err := a.saveRefreshToken(ctx, refresh, userId, userAgent, userIp); err != nil {
-		return nil, err
-	}
-	return &Tokens{Access: access, Refresh: refresh}, nil
+func (a *AuthService) getHashFromSign(jwtSign string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(jwtSign), bcrypt.MinCost)
+	return string(bytes), err
 }
+
+// executed by /token{id}
 
 // current user
 
-func (a *AuthService) RevokeAllUserTokens(ctx context.Context, userId string) {
-	// not Implmented
-	return
+func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
+	conn, err := a.Pool.Acquire(ctx)
+	defer conn.Release()
+	if err != nil {
+		a.logger.Error("Error occured getting the connection")
+		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	cur_time := time.Now()
+	query := "UPDATE auth.users AS u SET last_logout = $1 WHERE u.user_id = $2"
+	tx, err := startTransaction(ctx, conn, pgx.ReadCommitted)
+	if err != nil {
+		a.logger.Error("Error occured during starting the transaction in db")
+		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, query, cur_time, user.Id); err != nil {
+		a.logger.Error(fmt.Sprintf("Failed to execute query %s", query))
+		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		a.logger.Error("Failed to commit transaction", "error", err)
+		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+	return nil
+}
+func (a *AuthService) revokeAllUserRefreshTokens(ctx context.Context, userId string) {
+
 }
 
 func (a *AuthService) GetCurrentUserGUID(token string) {
