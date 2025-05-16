@@ -81,7 +81,7 @@ func (a *AuthService) validateToken(tokenString string, key string) (*jwt.Token,
 	if err != nil {
 		return nil, &core.AuthorizationError{Err: errors.New("can not authorize user")}
 	}
-	return token, err
+	return token, nil
 }
 
 // TODO: вынести все acquire в отдельнюу функцию
