@@ -31,4 +31,10 @@ start-db: load_env
 stop-db: load_env
 	@docker compose -f docker-compose-db.yaml down
 
-.PHONY: set-deps migrate load_env start_db reset up sb-status
+run: load_env
+	@go run cmd/main.go
+
+install: load_env
+	@go install
+
+.PHONY: set-deps migrate load_env start_db reset up sb-status install run
