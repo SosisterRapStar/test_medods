@@ -25,18 +25,24 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 }
 
 func validateError(err error) HTTPErrorMessage {
+	var (
+		authErr *core.AuthorizationError
+		forbErr *core.ForbiddenError
+		intErr  *core.InternalError
+		reqErr  *core.RequestError
+	)
 
 	switch {
-	case errors.Is(err, &core.AuthorizationError{}):
-		return HTTPErrorMessage{status: http.StatusUnauthorized, message: err.Error()}
-	case errors.Is(err, &core.ForbiddenError{}):
-		return HTTPErrorMessage{status: http.StatusForbidden, message: err.Error()}
-	case errors.Is(err, &core.InternalError{}):
-		return HTTPErrorMessage{status: http.StatusInternalServerError, message: err.Error()} // Исправлено на HTTPErrorMessage
-	case errors.Is(err, &core.RequestError{}):
-		return HTTPErrorMessage{status: http.StatusBadRequest, message: err.Error()}
+	case errors.As(err, &authErr):
+		return HTTPErrorMessage{http.StatusUnauthorized, err.Error()}
+	case errors.As(err, &forbErr):
+		return HTTPErrorMessage{http.StatusForbidden, err.Error()}
+	case errors.As(err, &intErr):
+		return HTTPErrorMessage{http.StatusInternalServerError, err.Error()}
+	case errors.As(err, &reqErr):
+		return HTTPErrorMessage{http.StatusBadRequest, err.Error()}
 	default:
-		return HTTPErrorMessage{status: http.StatusInternalServerError, message: "server internal error"}
+		return HTTPErrorMessage{http.StatusInternalServerError, "server internal error"}
 	}
 }
 
