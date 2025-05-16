@@ -22,3 +22,8 @@ type TokenInfo struct {
 	IssuedToIP string
 	IsRevoked  bool
 }
+
+type Tokens struct {
+	Access  string
+	Refresh string
+}

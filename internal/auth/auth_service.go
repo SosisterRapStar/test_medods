@@ -29,11 +29,6 @@ func startTransaction(ctx context.Context, conn *pgxpool.Conn, isolation pgx.TxI
 	return tx, nil
 }
 
-type Tokens struct {
-	Access  string
-	Refresh string
-}
-
 type AuthService struct {
 	logger *slog.Logger
 	c      *test_medods.Config
@@ -113,7 +108,7 @@ func (a *AuthService) checkIfUserLoggedOut(lastLogout *time.Time, issuedAt *jwt.
 	return lastLogout.After(issuedAt.Time), nil
 }
 
-func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*Tokens, error) {
+func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*core.Tokens, error) {
 	access, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
 	if err != nil {
 		a.logger.Error("Error occured during access token creating")
@@ -153,7 +148,7 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
 
-	return &Tokens{Access: access, Refresh: refresh}, nil
+	return &core.Tokens{Access: access, Refresh: refresh}, nil
 }
 
 func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secretKey string) (string, error) {
@@ -241,7 +236,7 @@ func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
 	return nil
 }
 
-func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString string, userAgent string, ip string) (*Tokens, error) {
+func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString string, userAgent string, ip string) (*core.Tokens, error) {
 	token, err := a.validateToken(refreshTokenString, a.c.Auth.SecretKey)
 	if err != nil {
 		return nil, err

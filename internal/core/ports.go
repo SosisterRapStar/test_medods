@@ -1,12 +1,12 @@
 package core
 
+import "context"
+
 type Auth interface {
-	GetUserIdFromToken() error
-	CreateTokens() error
-	RefreshToken() error
-	UpdateTokens() error
-	GetCurrentUserGUID() error
-	UnauthorizeUser() error
+	CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*Tokens, error)
+	RefreshTokens(ctx context.Context, refreshTokenString string, userAgent string, ip string) (*Tokens, error)
+	AuthenticateUser(ctx context.Context, tokenString string) (*User, error)
+	LogOutUser(ctx context.Context, user *User) error
 }
 
 // Service Layer Errors
