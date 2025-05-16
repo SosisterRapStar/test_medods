@@ -41,8 +41,12 @@ func validateError(err error) HTTPErrorMessage {
 }
 
 // Not Implemented
-func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Config) {
-	// Not Implemented
+func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Config, auth core.Auth) {
+	mux.HandleFunc("/api/v1/access/{id}", accessEndpoint(logger, auth))
+	mux.HandleFunc("/api/v1/refresh", refreshEndpoint(logger, auth))
+	mux.HandleFunc("/api/v1/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth), auth))
+	mux.HandleFunc("/api/v1/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth))
+
 }
 
 func accessEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
@@ -83,7 +87,7 @@ func refreshEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
 		if refreshToken == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "not authorized"})
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 		userAgent := r.Header.Get("User-Agent")
 		ipAddr := r.RemoteAddr
@@ -120,6 +124,38 @@ func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 		}
 		uuid := user.Id.String()
 		writeJSON(w, http.StatusOK, map[string]string{"user_id": uuid})
+	}
+}
+
+func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		user, ok := userFromContext(ctx)
+		if !ok {
+			logger.Error("Something went wrong with unauthorizeUserEndpoint")
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "server internal error"})
+			return
+		}
+		if err := auth.LogOutUser(ctx, user); err != nil {
+			httpErr := validateError(err)
+			writeJSON(w, httpErr.status, map[string]string{"message": httpErr.message})
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    "",
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+			Path:     "/",
+			MaxAge:   -1,
+		})
+
+		writeJSON(w, http.StatusOK, map[string]string{"message": "you were unauthorized"})
+
 	}
 }
 

@@ -10,11 +10,13 @@ import (
 	"net/http"
 
 	"github.com/sosisterrapstar/test_medods"
+	"github.com/sosisterrapstar/test_medods/internal/core"
 )
 
 func NewHandler(
 	logger *slog.Logger,
 	config *test_medods.Config,
+	auth core.Auth,
 	// place for future dependencies
 ) http.Handler {
 	mux := http.NewServeMux()
@@ -22,6 +24,7 @@ func NewHandler(
 		mux,
 		logger,
 		config,
+		auth,
 	)
 	var handler http.Handler = mux
 	return handler
