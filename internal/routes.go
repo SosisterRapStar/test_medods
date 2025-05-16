@@ -43,23 +43,23 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Conf
 	// Not Implemented
 }
 
-func accessEndpoint(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		_ = authService.CreateTokens()
-	}
-}
+// func accessEndpoint(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
+// 	return func(rw http.ResponseWriter, r *http.Request) {
+// 		_ = authService.CreateTokens()
+// 	}
+// }
 
-func refreshTokensEndpoint(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		_ = authService.UpdateTokens()
-	}
-}
+// func refreshTokensEndpoint(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
+// 	return func(rw http.ResponseWriter, r *http.Request) {
+// 		_ = authService.UpdateTokens()
+// 	}
+// }
 
-func updateTokensEndpointRoute(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		_ = authService.CreateTokens()
-	}
-}
+// func updateTokensEndpointRoute(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
+// 	return func(rw http.ResponseWriter, r *http.Request) {
+// 		_ = authService.CreateTokens()
+// 	}
+// }
 
 func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -76,8 +76,8 @@ func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func unauthorizeEndpoint(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		_ = authService.UnauthorizeUser()
-	}
-}
+// func unauthorizeEndpoint(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
+// 	return func(rw http.ResponseWriter, r *http.Request) {
+// 		_ = authService.UnauthorizeUser()
+// 	}
+// }
