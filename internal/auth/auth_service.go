@@ -19,6 +19,7 @@ import (
 )
 
 const DEFAULT_INTERNAL_ERROR_STRING = "internal server error"
+const DEFAULT_FORBIDDEN_ERROR_STRING = "resource forbidden"
 
 func startTransaction(ctx context.Context, conn *pgxpool.Conn, isolation pgx.TxIsoLevel) (pgx.Tx, error) {
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: isolation})
@@ -61,7 +62,7 @@ func (a *AuthService) AuthenticateUser(ctx context.Context, tokenString string) 
 	}
 	isLoggedOut, _ := a.checkIfUserLoggedOut(user.LastLogout, issuedAt)
 	if isLoggedOut {
-		return nil, &core.ForbiddenError{Err: errors.New("access to this recource is denied")}
+		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
 	}
 	return user, nil
 }
@@ -95,7 +96,7 @@ func (a *AuthService) getUserFromDb(ctx context.Context, userId string) (*core.U
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			a.logger.Warn(fmt.Sprintf("User doesn't exists but trying to use token %s", userId))
-			return nil, &core.ForbiddenError{Err: errors.New("resource forbidden")}
+			return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
 		}
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
@@ -123,11 +124,35 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 		a.logger.Error("Error occured during refresh token creating")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-
 	sign := strings.Split(refresh, ".")[2] // подпись
-	if err := a.saveRefreshToken(ctx, sign, userId, userAgent, userIp); err != nil {
+
+	conn, err := a.Pool.Acquire(ctx)
+	if err != nil {
+		a.logger.Error("Error occured during db connection acquiring token creating")
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+	tx, err := startTransaction(ctx, conn, pgx.ReadCommitted)
+	if err != nil {
+		a.logger.Error("Error occured during starting the transaction in db")
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	defer tx.Rollback(ctx)
+
+	// ревок прошлого токена
+	if err := a.revokeAllUserRefreshTokens(ctx, userId, tx); err != nil {
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+	if err := a.saveRefreshToken(ctx, tx, sign, userId, userAgent, userIp); err != nil {
 		return nil, err
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		a.logger.Error("Failed to commit transaction", "error", err)
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
 	return &Tokens{Access: access, Refresh: refresh}, nil
 }
 
@@ -145,21 +170,7 @@ func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secret
 	return jwt, nil
 }
 
-func (a *AuthService) saveRefreshToken(ctx context.Context, refresh string, userId string, userAgent string, userIp string) error {
-	conn, err := a.Pool.Acquire(ctx)
-	if err != nil {
-		a.logger.Error("Error occured during db connection acquiring token creating")
-		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
-	}
-
-	defer conn.Release()
-
-	tx, err := startTransaction(ctx, conn, pgx.ReadCommitted)
-	if err != nil {
-		a.logger.Error("Error occured during starting the transaction in db")
-		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
-	}
-	defer tx.Rollback(ctx)
+func (a *AuthService) saveRefreshToken(ctx context.Context, tx pgx.Tx, refresh string, userId string, userAgent string, userIp string) error {
 
 	userIdInUUID, err := uuid.Parse(userId)
 	if err != nil {
@@ -184,12 +195,6 @@ func (a *AuthService) saveRefreshToken(ctx context.Context, refresh string, user
 		a.logger.Error(fmt.Sprintf("Failed to execute query %s", query))
 		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		a.logger.Error("Failed to commit transaction", "error", err)
-		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
-	}
-
 	return nil
 }
 
@@ -222,6 +227,10 @@ func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
 	if _, err := tx.Exec(ctx, query, cur_time, user.Id); err != nil {
 		a.logger.Error(fmt.Sprintf("Failed to execute query %s", query))
 		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+	if err := a.revokeAllUserRefreshTokens(ctx, user.Id.String(), tx); err != nil {
+		return err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -287,20 +296,52 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 
 	if len(tokenInfos) > 1 {
 		// если длина больше 1 это значит, что сейчас 2 активных токена и это очень плохо, я не знаю возможна ли такая ситуация
-		// на всякий случай деактивируем пользователя
-
 		if err := a.LogOutUser(ctx, user); err != nil {
+			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 		}
+		a.logger.Warn(fmt.Sprintf("Finded two active tokens for one user %s", user.Id))
+		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
 	}
+	if len(tokenInfos) == 0 {
+		// если токен валиден но при этом у пользователя нет активных токенов
+		if err := a.LogOutUser(ctx, user); err != nil { // выкидыввание пользователя из аккаунта для получения новых токенов
+			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+		}
+
+		a.logger.Warn(fmt.Sprintf("It seems someone reuse already revoked token %s", user.Id))
+		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
+	}
+
+	storedTokenSignHash := tokenInfos[0].SignHash
+	isValid, err := a.bcryptValidateSign(token.Signature, []byte(storedTokenSignHash))
+	if err != nil {
+		return nil, err
+	}
+
+}
+
+func (a *AuthService) bcryptValidateSign(currentSign []byte, storedSign []byte) (bool, error) {
+	err := bcrypt.CompareHashAndPassword(storedSign, currentSign)
+	if err == nil {
+		return true, nil
+	}
+
+	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		return false, nil
+	}
+	a.logger.Error("Internal error occured during sign hash comparing")
+	return false, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 
 }
 
 // в данном случае лишняя логика так как можно было бы отзывать только последний созданный токен, но вдруг в будущем у пользователя может быть несколько устройств и тогда нужно было бы отозвать все токены или token family
 func (a *AuthService) revokeAllUserRefreshTokens(ctx context.Context, userId string, tx pgx.Tx) error {
+	query := "UPDATE auth.tokens t SET is_revoked = true WHERE t.user_id = $1 AND t.is_revoked = false"
+	_, err := tx.Exec(ctx, query, userId)
 	if err != nil {
-		return err
+		a.logger.Error(fmt.Sprintf("Error occured during revoking tokens for user %s", userId))
+		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	defer conn.Release()
-	query := "UPDATE auth.tokens t SET is_revoked = true WHERE t.user_id = $1"
+	return nil
 
 }
