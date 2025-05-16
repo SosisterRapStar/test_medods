@@ -61,9 +61,18 @@ func updateTokensEndpointRoute(logger *slog.Logger, authService core.Auth) http.
 	}
 }
 
-func getCurrentUserGUIDEndpoint(logger *slog.Logger, authService core.Auth) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		_ = authService.GetCurrentUserGUID()
+func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		user, ok := userFromContext(ctx)
+		if !ok {
+			logger.Error("Something went wrong with auth middleware")
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "server internal error"})
+			return
+		}
+		uuid := user.Id.String()
+		writeJSON(w, http.StatusOK, map[string]string{"user_id": uuid})
+		return
 	}
 }
 
