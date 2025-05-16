@@ -127,7 +127,7 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 		a.logger.Error("Error occured during refresh token creating")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	sign := strings.Split(refresh, ".")[2] // подпись
+	sign := strings.Split(refresh, ".")[2]
 
 	conn, err := a.Pool.Acquire(ctx)
 	if err != nil {
