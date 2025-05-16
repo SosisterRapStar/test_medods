@@ -122,7 +122,7 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 		a.logger.Error("Error occured during access token creating")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	refresh, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
+	refresh, err := a.generateJWT(userId, a.c.Auth.RefreshTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
 	if err != nil {
 		a.logger.Error("Error occured during refresh token creating")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
