@@ -241,7 +241,7 @@ func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
 	return nil
 }
 
-func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString string, user_agent string, ip string) (*Tokens, error) {
+func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString string, userAgent string, ip string) (*Tokens, error) {
 	token, err := a.validateToken(refreshTokenString, a.c.Auth.SecretKey)
 	if err != nil {
 		return nil, err
@@ -295,7 +295,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 	}
 
 	if len(tokenInfos) > 1 {
-		// если длина больше 1 это значит, что сейчас 2 активных токена и это очень плохо, я не знаю возможна ли такая ситуация
+		// если длина больше 1 это значит, что сейчас несколько активных токенов и это очень плохо, я не знаю возможна ли такая ситуация
 		if err := a.LogOutUser(ctx, user); err != nil {
 			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 		}
@@ -312,11 +312,40 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
 	}
 
-	storedTokenSignHash := tokenInfos[0].SignHash
-	isValid, err := a.bcryptValidateSign(token.Signature, []byte(storedTokenSignHash))
+	dbToken := tokenInfos[0]
+	isValid, err := a.bcryptValidateSign(token.Signature, []byte(dbToken.SignHash))
 	if err != nil {
 		return nil, err
 	}
+	if !isValid {
+		// если токен прошел валидацию, но при этом он не активен, то выкидываем пользователя
+		if err := a.LogOutUser(ctx, user); err != nil { // выкидыввание пользователя из аккаунта для получения новых токенов через авторизацю
+			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+		}
+
+		a.logger.Warn(fmt.Sprintf("It seems someone reuse already revoked token %s", user.Id))
+		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
+	}
+
+	// не совпадает UA
+	if userAgent != dbToken.IssuedToUA {
+		a.logger.Warn(fmt.Sprintf("User %s changed UA", user.Id))
+		if err := a.LogOutUser(ctx, user); err != nil { // выкидыввание пользователя из аккаунта для получения новых токенов через авторизацю
+			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+		}
+		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
+	}
+
+	if ip != dbToken.IssuedToIP {
+		a.logger.Warn(fmt.Sprintf("User %s changed IP", user.Id))
+	}
+
+	tokens, err := a.CreateTokens(ctx, user.Id.String(), userAgent, ip)
+	if err != nil {
+		return nil, err
+	}
+
+	return tokens, err
 
 }
 
