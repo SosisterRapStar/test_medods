@@ -77,6 +77,38 @@ func accessEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
 	}
 }
 
+func refreshEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		refreshToken := getFromCookies(r, "refresh_token")
+		if refreshToken == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "not authorized"})
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		userAgent := r.Header.Get("User-Agent")
+		ipAddr := r.RemoteAddr
+
+		tokens, err := auth.RefreshTokens(ctx, refreshToken, userAgent, ipAddr)
+		if err != nil {
+			httpErr := validateError(err)
+			writeJSON(w, httpErr.status, map[string]string{"message": httpErr.message})
+			return
+		}
+
+		cookie := &http.Cookie{
+			Name:     "refresh_token",
+			Value:    tokens.Refresh,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		http.SetCookie(w, cookie)
+
+		writeJSON(w, http.StatusOK, map[string]string{"accessToken": tokens.Access})
+	}
+}
+
 func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

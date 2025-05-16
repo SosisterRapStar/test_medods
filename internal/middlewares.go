@@ -19,6 +19,17 @@ func userFromContext(ctx context.Context) (*core.User, bool) {
 
 }
 
+// func refreshTokenMiddleware(h http.HandlerFunc, auth core.Auth) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		refreshToken := getFromCookies(r, "refresh_token")
+// 		if refreshToken == "" {
+// 			writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "not authorized"})
+// 		}
+// 		user, err :=
+// 		// ctx := context.WithValue(context.Background(), )
+// 	}
+// }
+
 // Not implemented yet
 func authenticationMiddleware(h http.HandlerFunc, auth core.Auth) http.HandlerFunc {
 
