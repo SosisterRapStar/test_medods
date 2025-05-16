@@ -15,7 +15,6 @@ import (
 	"github.com/sosisterrapstar/test_medods"
 	"github.com/sosisterrapstar/test_medods/internal/core"
 	"github.com/sosisterrapstar/test_medods/internal/postgres"
-	"github.com/vertica/vertica-sql-go/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -245,7 +244,11 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
 
-	var tokenInfos core.TokenInfo[]
+	user, err := a.getUserFromDb(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	var tokenInfos []core.TokenInfo
 
 	conn, err := a.Pool.Acquire(ctx)
 	if err != nil {
@@ -260,18 +263,44 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 		FROM auth.tokens t
 		WHERE t.user_id = $1 and t.is_revoked = false; 
 	`
-	
+
 	rows, err := conn.Query(ctx, query, userId)
-	
+	if err != nil {
+		a.logger.Error(fmt.Sprintf("Error occured during quering user tokens %s", err.Error()))
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ti core.TokenInfo
+		err = rows.Scan(&ti.SignHash, &ti.IsRevoked, &ti.IssuedToUA, &ti.IssuedToIP)
+		if err != nil {
+			a.logger.Error(fmt.Sprintf("Error occured during scan token %s", err.Error()))
+			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+		}
+		tokenInfos = append(tokenInfos, ti)
+	}
+	if rows.Err() != nil {
+		a.logger.Error(fmt.Sprintf("Error occured during rows checking %v", rows.Err()))
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+
+	if len(tokenInfos) > 1 {
+		// если длина больше 1 это значит, что сейчас 2 активных токена и это очень плохо, я не знаю возможна ли такая ситуация
+		// на всякий случай деактивируем пользователя
+
+		if err := a.LogOutUser(ctx, user); err != nil {
+		}
+	}
 
 }
 
 // в данном случае лишняя логика так как можно было бы отзывать только последний созданный токен, но вдруг в будущем у пользователя может быть несколько устройств и тогда нужно было бы отозвать все токены или token family
-func (a *AuthService) revokeAllUserRefreshTokens(ctx context.Context, userId string) error {
-	conn, err := a.Pool.Acquire(ctx)
+func (a *AuthService) revokeAllUserRefreshTokens(ctx context.Context, userId string, tx pgx.Tx) error {
 	if err != nil {
 		return err
 	}
 	defer conn.Release()
-	query := "UPDATE (SELECT FROM auth.users u JOIN auth.tokens t ON u.user_id = t.user_id) AS ut SET ut.is_revoked = true"
+	query := "UPDATE auth.tokens t SET is_revoked = true WHERE t.user_id = $1"
+
 }
