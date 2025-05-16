@@ -17,7 +17,6 @@ func NewHandler(
 	logger *slog.Logger,
 	config *test_medods.Config,
 	auth core.Auth,
-	// place for future dependencies
 ) http.Handler {
 	mux := http.NewServeMux()
 	addRoutes(
@@ -39,9 +38,9 @@ type Server struct {
 func NewServer(
 	logger *slog.Logger,
 	c *test_medods.Config,
-	// place for future dependencies
+	auth core.Auth,
 ) *Server {
-	handler := NewHandler(logger, c)
+	handler := NewHandler(logger, c, auth)
 	httpServer := &http.Server{
 		Addr:    c.Addr,
 		Handler: handler,

@@ -1,18 +1,20 @@
 package main
 
 import (
-	"log"
+	"github.com/sosisterrapstar/test_medods"
+	"github.com/sosisterrapstar/test_medods/internal/auth"
+	"github.com/sosisterrapstar/test_medods/internal/postgres"
 )
-
-// Not Implemented
-func bootsrap() error {
-	return nil
-}
 
 // Abstract
 func main() {
-
-	if err := bootsrap(); err != nil {
-		log.Fatal(err)
+	config := test_medods.MustLoad()
+	logger := test_medods.SetupLogger()
+	psConn := postgres.PostgresConnection{}
+	psConn.Open(logger, config)
+	authService := &auth.AuthService{
+		logger,
+		config,
+		&psConn,
 	}
 }

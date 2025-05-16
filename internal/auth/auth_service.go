@@ -35,6 +35,14 @@ type AuthService struct {
 	*postgres.PostgresConnection
 }
 
+func NewAuthService(logger *slog.Logger, c *test_medods.Config, pool *postgres.PostgresConnection) *AuthService {
+	return &AuthService{
+		logger:             logger,
+		c:                  c,
+		PostgresConnection: pool,
+	}
+}
+
 func (a *AuthService) AuthenticateUser(ctx context.Context, tokenString string) (*core.User, error) {
 	token, err := a.validateToken(tokenString, a.c.Auth.SecretKey)
 	if err != nil {
