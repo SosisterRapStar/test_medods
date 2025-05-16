@@ -15,6 +15,7 @@ import (
 	"github.com/sosisterrapstar/test_medods"
 	"github.com/sosisterrapstar/test_medods/internal/core"
 	"github.com/sosisterrapstar/test_medods/internal/postgres"
+	"github.com/vertica/vertica-sql-go/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -232,7 +233,7 @@ func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
 	return nil
 }
 
-func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString string) (*Tokens, error) {
+func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString string, user_agent string, ip string) (*Tokens, error) {
 	token, err := a.validateToken(refreshTokenString, a.c.Auth.SecretKey)
 	if err != nil {
 		return nil, err
@@ -244,11 +245,25 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
 
-	var tokenInfo core.TokenInfo
+	var tokenInfos core.TokenInfo[]
+
+	conn, err := a.Pool.Acquire(ctx)
+	if err != nil {
+		a.logger.Error("Error occured getting connection ")
+		return nil, err
+	}
+	defer conn.Release()
+
 	// корявый способ при котором всегда приходится ходить в базу
 	query := `
-		SELECT t.sign_hash, t.is_revoked, t.issued_to_ua, t.issued_to_ip FROM auth.tokens t WHERE t.user_id = userId; 
+		SELECT t.sign_hash, t.is_revoked, t.issued_to_ua, t.issued_to_ip 
+		FROM auth.tokens t
+		WHERE t.user_id = $1 and t.is_revoked = false; 
 	`
+	
+	rows, err := conn.Query(ctx, query, userId)
+	
+
 }
 
 // в данном случае лишняя логика так как можно было бы отзывать только последний созданный токен, но вдруг в будущем у пользователя может быть несколько устройств и тогда нужно было бы отозвать все токены или token family
