@@ -227,6 +227,11 @@ func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
 
 	return nil
 }
+
+func (a *AuthService) RefreshAccessToken(ctx context.Context, refreshToken string) (*Tokens, error) {
+
+}
+
 func (a *AuthService) revokeAllUserRefreshTokens(ctx context.Context, userId string) {
 
 }
