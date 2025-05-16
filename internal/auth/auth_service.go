@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -82,11 +83,12 @@ func (a *AuthService) validateToken(tokenString string, key string) (*jwt.Token,
 // TODO: вынести все acquire в отдельнюу функцию
 func (a *AuthService) getUserFromDb(ctx context.Context, userId string) (*core.User, error) {
 	conn, err := a.Pool.Acquire(ctx)
-	defer conn.Release()
 	if err != nil {
 		a.logger.Error("Error occured getting connection ")
 		return nil, err
 	}
+	defer conn.Release()
+
 	query := "SELECT u.user_id, u.name, u.created_at, u.updated_at, u.last_logout FROM auth.users u WHERE u.user_id = $1"
 	var user core.User
 	err = conn.QueryRow(ctx, query, userId).Scan(&user.Id, &user.Name, &user.CreatedAt, &user.UpdatedAt, &user.LastLogout)
@@ -122,7 +124,8 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
 
-	if err := a.saveRefreshToken(ctx, refresh, userId, userAgent, userIp); err != nil {
+	sign := strings.Split(refresh, ".")[2] // подпись
+	if err := a.saveRefreshToken(ctx, sign, userId, userAgent, userIp); err != nil {
 		return nil, err
 	}
 	return &Tokens{Access: access, Refresh: refresh}, nil
@@ -201,11 +204,12 @@ func (a *AuthService) getHashFromSign(jwtSign string) (string, error) {
 
 func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
 	conn, err := a.Pool.Acquire(ctx)
-	defer conn.Release()
 	if err != nil {
 		a.logger.Error("Error occured getting the connection")
 		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
+	defer conn.Release()
+
 	cur_time := time.Now()
 	query := "UPDATE auth.users AS u SET last_logout = $1 WHERE u.user_id = $2"
 	tx, err := startTransaction(ctx, conn, pgx.ReadCommitted)
@@ -228,15 +232,31 @@ func (a *AuthService) LogOutUser(ctx context.Context, user *core.User) error {
 	return nil
 }
 
-func (a *AuthService) RefreshAccessToken(ctx context.Context, refreshToken string) (*Tokens, error) {
+func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString string) (*Tokens, error) {
+	token, err := a.validateToken(refreshTokenString, a.c.Auth.SecretKey)
+	if err != nil {
+		return nil, err
+	}
+	claims := token.Claims
+	userId, err := claims.GetSubject()
+	if err != nil {
+		a.logger.Error("Error occured during getting user Id from token")
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
 
+	var tokenInfo core.TokenInfo
+	// корявый способ при котором всегда приходится ходить в базу
+	query := `
+		SELECT t.sign_hash, t.is_revoked, t.issued_to_ua, t.issued_to_ip FROM auth.tokens t WHERE t.user_id = userId; 
+	`
 }
 
-func (a *AuthService) revokeAllUserRefreshTokens(ctx context.Context, userId string) {
-
-}
-
-func (a *AuthService) GetCurrentUserGUID(token string) {
-	// not Implmented
-	return
+// в данном случае лишняя логика так как можно было бы отзывать только последний созданный токен, но вдруг в будущем у пользователя может быть несколько устройств и тогда нужно было бы отозвать все токены или token family
+func (a *AuthService) revokeAllUserRefreshTokens(ctx context.Context, userId string) error {
+	conn, err := a.Pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	query := "UPDATE (SELECT FROM auth.users u JOIN auth.tokens t ON u.user_id = t.user_id) AS ut SET ut.is_revoked = true"
 }
