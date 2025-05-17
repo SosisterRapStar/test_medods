@@ -55,7 +55,7 @@ func (s *Server) Start() {
 	go func() {
 		s.logger.Info(fmt.Sprintf("Starting the server on %s", s.s.Addr))
 		if err := s.s.ListenAndServe(); err != nil {
-			log.Fatal("Error starting the server")
+			log.Fatal("Error starting the server", "err", err.Error())
 		}
 		log.Fatal("Started to stop the server")
 	}()

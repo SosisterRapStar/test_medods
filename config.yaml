@@ -1,7 +1,7 @@
 env: "local" 
 
 http_server:
-  address: ":8080"
+  address: ":8888"
 
 storage:
   postgres:

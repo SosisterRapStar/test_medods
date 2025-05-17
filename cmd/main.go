@@ -21,7 +21,7 @@ func main() {
 	authService := auth.NewAuthService(logger, config, &psConn)
 	server := internal.NewServer(logger, config, authService)
 	server.Start()
-
+	logger.Info("Server started")
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
