@@ -13,6 +13,7 @@ type Auth struct {
 	AccessTokenExpirePeriodMinutes  int    `yaml:"access_expire_period_minutes" env-default:"3"`
 	RefreshTokenExpirePeriodMinutes int    `yaml:"refresh_token_expire_period_minutes" env-default:"10"`
 	RefreshTokenCookieName          string `yaml:"refresh_token_cookie_name" env-default:"medods_app_refresh_token"`
+	IPChangeNotificationWebhook     string `yaml:"ip_change_notification_webhook" env-default:"http://localhost:9999/api/v1/change_ip_event"`
 }
 
 type Server struct {

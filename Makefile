@@ -42,4 +42,7 @@ install: load_env
 update-doc:
 	@./bin/swag init -g internal/routes.go
 
-.PHONY: set-deps migrate load_env start_db reset up sb-status install run update-doc
+start-webhook: load_env
+	@cd webhook_service && make start &
+
+.PHONY: set-deps migrate load_env start_db reset up sb-status install run update-doc start-webhook
