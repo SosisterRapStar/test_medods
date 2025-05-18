@@ -159,7 +159,7 @@ func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
-			Path:     "/",
+			Path:     "/api/v1/auth/",
 			MaxAge:   -1,
 		})
 
