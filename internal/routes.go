@@ -48,10 +48,10 @@ func validateError(err error) HTTPErrorMessage {
 
 // Not Implemented
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Config, auth core.Auth) {
-	mux.HandleFunc("/api/v1/access/{id}", accessEndpoint(logger, auth, config))
-	mux.HandleFunc("/api/v1/refresh", refreshEndpoint(logger, auth, config))
-	mux.HandleFunc("/api/v1/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth), auth, logger))
-	mux.HandleFunc("/api/v1/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth, logger))
+	mux.HandleFunc("GET /api/v1/auth/access/{id}", accessEndpoint(logger, auth, config))
+	mux.HandleFunc("GET /api/v1/auth/refresh", refreshEndpoint(logger, auth, config))
+	mux.HandleFunc("GET /api/v1/auth/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth, config), auth, logger))
+	mux.HandleFunc("GET /api/v1/auth/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth, logger))
 
 }
 
@@ -79,6 +79,7 @@ func accessEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) 
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
+			Path:     "/api/v1/auth/",
 		}
 
 		http.SetCookie(w, cookie)
@@ -135,7 +136,7 @@ func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
+func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -153,7 +154,7 @@ func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFu
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:     "refresh_token",
+			Name:     c.RefreshTokenCookieName,
 			Value:    "",
 			HttpOnly: true,
 			Secure:   true,
