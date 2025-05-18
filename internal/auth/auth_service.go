@@ -16,6 +16,7 @@ import (
 	"github.com/sosisterrapstar/test_medods"
 	"github.com/sosisterrapstar/test_medods/internal/core"
 	"github.com/sosisterrapstar/test_medods/internal/postgres"
+	"github.com/sosisterrapstar/test_medods/internal/webhook"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -34,13 +35,15 @@ type AuthService struct {
 	logger *slog.Logger
 	c      *test_medods.Config
 	*postgres.PostgresConnection
+	webhook *webhook.IpWebhook
 }
 
-func NewAuthService(logger *slog.Logger, c *test_medods.Config, pool *postgres.PostgresConnection) *AuthService {
+func NewAuthService(logger *slog.Logger, c *test_medods.Config, pool *postgres.PostgresConnection, webhook *webhook.IpWebhook) *AuthService {
 	return &AuthService{
 		logger:             logger,
 		c:                  c,
 		PostgresConnection: pool,
+		webhook:            webhook,
 	}
 }
 
@@ -374,6 +377,17 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 			"user_id", user.Id,
 			"stored_ip", dbToken.IssuedToIP,
 			"current_ip", ip)
+		if a.webhook != nil {
+			event := webhook.IpUpdateEvent{
+				Timestamp: time.Now(),
+				PrevIp:    dbToken.IssuedToIP,
+				NewIp:     ip,
+				UserId:    user.Id.String(),
+			}
+			if err := a.webhook.SendEvent(event); err != nil {
+				a.logger.Error("Error occured during sending request to webhook check service")
+			}
+		}
 	}
 
 	tokens, err := a.CreateTokens(ctx, user.Id.String(), userAgent, ip)

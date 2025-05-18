@@ -15,6 +15,14 @@ type IpWebhook struct {
 	logger *slog.Logger
 }
 
+func NewIpWebhook(endppoint string, client *http.Client, logger *slog.Logger) *IpWebhook {
+	return &IpWebhook{
+		Endpoint: endppoint,
+		Client:   client,
+		logger:   logger,
+	}
+}
+
 type IpUpdateEvent struct {
 	Timestamp time.Time `json:"time"`
 	UserId    string    `json:"user_id"`

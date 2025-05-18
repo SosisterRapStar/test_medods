@@ -11,6 +11,7 @@ import (
 	"github.com/sosisterrapstar/test_medods/internal"
 	"github.com/sosisterrapstar/test_medods/internal/auth"
 	"github.com/sosisterrapstar/test_medods/internal/postgres"
+	"github.com/sosisterrapstar/test_medods/internal/webhook"
 )
 
 func main() {
@@ -18,7 +19,15 @@ func main() {
 	logger := test_medods.SetupLogger()
 	psConn := postgres.PostgresConnection{}
 	psConn.Open(logger, config)
-	authService := auth.NewAuthService(logger, config, &psConn)
+
+	webhookServce := webhook.NewIpWebhook(
+		config.Auth.IPChangeNotificationWebhook,
+		internal.NewHTTPClient(),
+		logger,
+	)
+
+	authService := auth.NewAuthService(logger, config, &psConn, webhookServce)
+
 	server := internal.NewServer(logger, config, authService)
 	server.Start()
 	sigChan := make(chan os.Signal, 1)
