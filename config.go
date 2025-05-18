@@ -16,7 +16,8 @@ type Auth struct {
 }
 
 type Server struct {
-	Addr string `yaml:"address" env-required:"true"`
+	Addr       string `yaml:"address" env-required:"true"`
+	APIVersion string `yaml:"api_version" env-default:"1"`
 }
 
 type Postgres struct {
