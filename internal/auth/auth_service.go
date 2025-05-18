@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -79,6 +80,7 @@ func (a *AuthService) validateToken(tokenString string, key string) (*jwt.Token,
 		return []byte(key), nil
 	})
 	if err != nil {
+		a.logger.Error("Error occured during token validating", "error", err.Error())
 		return nil, &core.AuthorizationError{Err: errors.New("can not authorize user")}
 	}
 	return token, nil
@@ -160,10 +162,10 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 }
 
 func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secretKey string) (string, error) {
-	accessClaims := jwt.MapClaims{
-		"sub": userId,
-		"exp": time.Now().Add(time.Minute * time.Duration(expirePeriodMinutes)),
-		"iat": time.Now(),
+	accessClaims := jwt.RegisteredClaims{
+		Subject:   userId,
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * time.Duration(expirePeriodMinutes))),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS512, accessClaims)
 	jwt, err := t.SignedString([]byte(secretKey))
@@ -180,9 +182,9 @@ func (a *AuthService) saveRefreshToken(ctx context.Context, tx pgx.Tx, refresh s
 		a.logger.Error(fmt.Sprintf("Error occured during parsing user id %s id to uuid", userId))
 		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	signHash, err := a.getHashFromSign(refresh)
+	signHash, err := a.getHashFromSign([]byte(refresh))
 	if err != nil {
-		a.logger.Error("Error occured during bcrypt hashing of refresh JWT sign")
+		a.logger.Error("Error occured during bcrypt hashing of refresh JWT sign", "error", err.Error())
 		return &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
 	token_info := core.TokenInfo{
@@ -201,8 +203,13 @@ func (a *AuthService) saveRefreshToken(ctx context.Context, tx pgx.Tx, refresh s
 	return nil
 }
 
-func (a *AuthService) getHashFromSign(jwtSign string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(jwtSign), bcrypt.MinCost)
+func (a *AuthService) getHashFromSign(jwtSign []byte) (string, error) {
+	a.logger.Debug(base64.StdEncoding.EncodeToString(jwtSign))
+	if len(jwtSign) > 70 {
+		jwtSign = jwtSign[:70]
+	}
+	// a.logger.Debug("Hashed token", "token", base64.StdEncoding.EncodeToString(byteSign))
+	bytes, err := bcrypt.GenerateFromPassword(jwtSign, bcrypt.MinCost)
 	return string(bytes), err
 }
 
@@ -310,13 +317,18 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 		if err := a.LogOutUser(ctx, user); err != nil { // выкидыввание пользователя из аккаунта для получения новых токенов
 			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 		}
-
+		a.logger.Debug("No tokens in storage")
 		a.logger.Warn(fmt.Sprintf("It seems someone reuse already revoked token %s", user.Id))
 		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
 	}
 
 	dbToken := tokenInfos[0]
-	isValid, err := a.bcryptValidateSign(token.Signature, []byte(dbToken.SignHash))
+	tokenSign := []byte(strings.Split(refreshTokenString, ".")[2])
+
+	// bcrypt не может хэшировать больше 72
+	// a.logger.Debug(base64.StdEncoding.EncodeToString(tokenSign))
+
+	isValid, err := a.bcryptValidateSign(tokenSign, []byte(dbToken.SignHash))
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +337,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 		if err := a.LogOutUser(ctx, user); err != nil { // выкидыввание пользователя из аккаунта для получения новых токенов через авторизацю
 			return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 		}
-
+		a.logger.Debug("Can not validate token")
 		a.logger.Warn(fmt.Sprintf("It seems someone reuse already revoked token %s", user.Id))
 		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
 	}
@@ -340,7 +352,10 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 	}
 
 	if ip != dbToken.IssuedToIP {
-		a.logger.Warn(fmt.Sprintf("User %s changed IP", user.Id))
+		a.logger.Warn("IP address changed",
+			"user_id", user.Id,
+			"stored_ip", dbToken.IssuedToIP,
+			"current_ip", ip)
 	}
 
 	tokens, err := a.CreateTokens(ctx, user.Id.String(), userAgent, ip)
@@ -353,6 +368,12 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 }
 
 func (a *AuthService) bcryptValidateSign(currentSign []byte, storedSign []byte) (bool, error) {
+	a.logger.Debug(base64.StdEncoding.EncodeToString(currentSign))
+
+	if len(currentSign) > 70 {
+		currentSign = currentSign[:70]
+	}
+
 	err := bcrypt.CompareHashAndPassword(storedSign, currentSign)
 	if err == nil {
 		return true, nil

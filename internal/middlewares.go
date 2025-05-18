@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -11,7 +12,7 @@ import (
 
 type userKey int
 
-const userStructKey = 0
+const userStructKey userKey = 0
 
 func userFromContext(ctx context.Context) (*core.User, bool) {
 	user, ok := ctx.Value(userStructKey).(*core.User)
@@ -19,23 +20,12 @@ func userFromContext(ctx context.Context) (*core.User, bool) {
 
 }
 
-// func refreshTokenMiddleware(h http.HandlerFunc, auth core.Auth) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		refreshToken := getFromCookies(r, "refresh_token")
-// 		if refreshToken == "" {
-// 			writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "not authorized"})
-// 		}
-// 		user, err :=
-// 		// ctx := context.WithValue(context.Background(), )
-// 	}
-// }
-
 // Not implemented yet
-func authenticationMiddleware(h http.HandlerFunc, auth core.Auth) http.HandlerFunc {
+func authenticationMiddleware(h http.HandlerFunc, auth core.Auth, logger *slog.Logger) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
-
+		logger.Debug("Auth middleware started")
 		if authHeader == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "authorization header is required"})
 			return
@@ -47,7 +37,6 @@ func authenticationMiddleware(h http.HandlerFunc, auth core.Auth) http.HandlerFu
 			return
 		}
 		token := parts[1]
-
 		if len(token) == 0 {
 			response := map[string]string{"message": "not authorized"}
 			writeJSON(w, http.StatusUnauthorized, response)
@@ -55,13 +44,14 @@ func authenticationMiddleware(h http.HandlerFunc, auth core.Auth) http.HandlerFu
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
 		user, err := auth.AuthenticateUser(ctx, token)
 		if err != nil {
 			httpErr := validateError(err)
 			writeJSON(w, httpErr.status, map[string]string{"message": httpErr.message})
 			return
 		}
-		cancel()
+		logger.Debug("User authenticated", "userId", user.Id)
 
 		ctx = context.WithValue(context.Background(), userStructKey, user)
 		h(w, r.WithContext(ctx))

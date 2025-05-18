@@ -12,6 +12,7 @@ type Auth struct {
 	SecretKey                       string `yaml:"secret_key" env-required:"true"`
 	AccessTokenExpirePeriodMinutes  int    `yaml:"access_expire_period_minutes" env-default:"3"`
 	RefreshTokenExpirePeriodMinutes int    `yaml:"refresh_token_expire_period_minutes" env-default:"10"`
+	RefreshTokenCookieName          string `yaml:"secret_key" env-default:"medods_app_refresh_token"`
 }
 
 type Server struct {

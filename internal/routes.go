@@ -49,9 +49,9 @@ func validateError(err error) HTTPErrorMessage {
 // Not Implemented
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Config, auth core.Auth) {
 	mux.HandleFunc("/api/v1/access/{id}", accessEndpoint(logger, auth))
-	mux.HandleFunc("/api/v1/refresh", refreshEndpoint(logger, auth))
-	mux.HandleFunc("/api/v1/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth), auth))
-	mux.HandleFunc("/api/v1/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth))
+	mux.HandleFunc("/api/v1/refresh", refreshEndpoint(logger, auth, config))
+	mux.HandleFunc("/api/v1/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth), auth, logger))
+	mux.HandleFunc("/api/v1/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth, logger))
 
 }
 
@@ -63,7 +63,7 @@ func accessEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
 		id := r.PathValue("id")
 
 		userAgent := r.Header.Get("User-Agent")
-		// сервис не расчитан на работу за балансировщиком, поэтому не проверяет X-Forwarded-For
+		// сервис не расчитан на работу за балансировщиком, поэтому не проверяет ip в X-Forwarded-For
 		ipAddr := r.RemoteAddr
 
 		tokens, err := auth.CreateTokens(ctx, id, userAgent, ipAddr)
@@ -87,9 +87,11 @@ func accessEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
 	}
 }
 
-func refreshEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
+func refreshEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		refreshToken := getFromCookies(r, "refresh_token")
+		logger.Debug("Refresh endpoint activated")
+		refreshToken := getFromCookies(r, c.Auth.RefreshTokenCookieName)
+		logger.Debug(refreshToken)
 		if refreshToken == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "not authorized"})
 		}
@@ -106,7 +108,7 @@ func refreshEndpoint(logger *slog.Logger, auth core.Auth) http.HandlerFunc {
 		}
 
 		cookie := &http.Cookie{
-			Name:     "refresh_token",
+			Name:     c.Auth.RefreshTokenCookieName,
 			Value:    tokens.Refresh,
 			HttpOnly: true,
 			Secure:   true,
