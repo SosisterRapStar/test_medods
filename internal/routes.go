@@ -86,8 +86,8 @@ func validateError(err error) HTTPErrorMessage {
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Config, auth core.Auth) {
 	mux.HandleFunc("GET /api/v1/auth/access/{id}", accessEndpoint(logger, auth, config))
 	mux.HandleFunc("GET /api/v1/auth/refresh", refreshEndpoint(logger, auth, config))
-	mux.HandleFunc("GET /api/v1/auth/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth, config), auth, logger))
-	mux.HandleFunc("GET /api/v1/auth/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth, logger))
+	mux.HandleFunc("GET /api/v1/auth/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth, config), auth, logger, config))
+	mux.HandleFunc("GET /api/v1/auth/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth, logger, config))
 
 }
 
