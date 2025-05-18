@@ -1,3 +1,18 @@
+// @title Auth Service
+// @BasePath /api/v1/
+// @version 1.0
+// @description Simple JWT authentication service with token revokation
+// @termsOfService http://swagger.io/terms/
+// @contact.name Timoshenkov Ivan
+// @contact.email timoshenkovvanya@gmail.com
+// @contact.url https://t.me/IvanTimoshenkov
+// @license.name LICENSE MIT
+// @externalDocs.description  OpenAPI
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @tokenUrl /auth/access/{id}  // endpoint для получения токена
 package internal
 
 import (
@@ -11,6 +26,27 @@ import (
 	"github.com/sosisterrapstar/test_medods"
 	"github.com/sosisterrapstar/test_medods/internal/core"
 )
+
+// -----STRUCTS FOR SWAGGO------
+// @Description Error response error
+type ErrorResponse struct {
+	// example: internal server error
+	Message string `json:"message"`
+}
+
+// @Description Access token info
+type AccessTokenResponse struct {
+	// example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30
+	Access_token string `json:"access_token"`
+}
+
+// @Description User id info
+type UserIdResponse struct {
+	// example: 9bb4b3f5-201f-4736-a4bc-f6397dc5a57f
+	UserId string `json:"user_id"`
+}
+
+// -----------------------------
 
 type HTTPErrorMessage struct {
 	status  int
@@ -55,6 +91,18 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Conf
 
 }
 
+// AccessEndpoint godoc
+// @Summary Generate access JWT and refresh JWT token
+// @Description Creates new access send refresh token in secured cookie
+// @Tags Authentication
+// @Produce json
+// @Param id path string true "User GUID"
+// @Success 200 {object} AccessTokenResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /auth/access/{id} [get]
 func accessEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var tokens *core.Tokens
@@ -123,6 +171,18 @@ func refreshEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config)
 	}
 }
 
+// GetUserGuidEndpoint godoc
+// @Summary Secured endpoint returns user GUID
+// @Description Checks user access token and returns user id
+// @Tags Authentication
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} UserIdResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /auth/me [get]
 func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -137,6 +197,18 @@ func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	}
 }
 
+// GetUserGuidEndpoint godoc
+// @Summary Secured endpoint unauthorizing user
+// @Description Unauthorizing user with current active access token. All refresh tokens and access tokens that were issued before authentication will be revoked
+// @Tags Authentication
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} UserIdResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /auth/me [get]
 func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
