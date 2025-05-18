@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sosisterrapstar/test_medods"
 	"github.com/sosisterrapstar/test_medods/internal/core"
 )
 
@@ -21,7 +22,7 @@ func userFromContext(ctx context.Context) (*core.User, bool) {
 }
 
 // Not implemented yet
-func authenticationMiddleware(h http.HandlerFunc, auth core.Auth, logger *slog.Logger) http.HandlerFunc {
+func authenticationMiddleware(h http.HandlerFunc, auth core.Auth, logger *slog.Logger, config *test_medods.Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -45,7 +46,13 @@ func authenticationMiddleware(h http.HandlerFunc, auth core.Auth, logger *slog.L
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		user, err := auth.AuthenticateUser(ctx, token)
+		refreshToken := getFromCookies(r, config.Auth.RefreshTokenCookieName)
+		if refreshToken == "" {
+			response := map[string]string{"message": "not authorized"}
+			writeJSON(w, http.StatusUnauthorized, response)
+			return
+		}
+		user, err := auth.AuthenticateUser(ctx, token, refreshToken)
 		if err != nil {
 			httpErr := validateError(err)
 			writeJSON(w, httpErr.status, map[string]string{"message": httpErr.message})

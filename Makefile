@@ -12,6 +12,8 @@ GOOSE_DRIVER = postgres
 
 set-deps:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
+	go install github.com/swaggo/swag/cmd/swag@latest
+
 
 load_env:
 	@source ./set_env
@@ -37,4 +39,7 @@ run: load_env
 install: load_env
 	@go install
 
-.PHONY: set-deps migrate load_env start_db reset up sb-status install run
+update-doc:
+	@./bin/swag init -g internal/routes.go
+
+.PHONY: set-deps migrate load_env start_db reset up sb-status install run update-doc

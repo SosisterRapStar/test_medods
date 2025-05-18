@@ -10,14 +10,16 @@ import (
 	"net/http"
 
 	"github.com/sosisterrapstar/test_medods"
+	_ "github.com/sosisterrapstar/test_medods/docs"
 	"github.com/sosisterrapstar/test_medods/internal/core"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
-func NewHandler(
+func NewServeMuxHandler(
 	logger *slog.Logger,
 	config *test_medods.Config,
 	auth core.Auth,
-) http.Handler {
+) *http.ServeMux {
 	mux := http.NewServeMux()
 	addRoutes(
 		mux,
@@ -25,14 +27,21 @@ func NewHandler(
 		config,
 		auth,
 	)
-	var handler http.Handler = mux
-	return handler
+	addSwagger(mux)
+	return mux
+}
+
+func addSwagger(mux *http.ServeMux) {
+	mux.Handle("GET /swagger/", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 }
 
 // Server struct as a wrapper around http.Server
 type Server struct {
 	logger *slog.Logger
 	s      *http.Server
+	Mux    *http.ServeMux // чтобы потом можно было подсоединять сторонние роуты к серверу
 }
 
 func NewServer(
@@ -40,7 +49,8 @@ func NewServer(
 	c *test_medods.Config,
 	auth core.Auth,
 ) *Server {
-	handler := NewHandler(logger, c, auth)
+	mux := NewServeMuxHandler(logger, c, auth)
+	var handler http.Handler = mux
 	httpServer := &http.Server{
 		Addr:    c.Addr,
 		Handler: handler,
@@ -48,6 +58,7 @@ func NewServer(
 	return &Server{
 		logger: logger,
 		s:      httpServer,
+		Mux:    mux,
 	}
 }
 

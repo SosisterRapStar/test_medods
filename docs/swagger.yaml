@@ -1,0 +1,109 @@
+basePath: /api/v1/
+definitions:
+  internal.AccessTokenResponse:
+    description: Access token info
+    properties:
+      access_token:
+        description: 'example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30'
+        type: string
+    type: object
+  internal.ErrorResponse:
+    description: Error response error
+    properties:
+      message:
+        description: 'example: internal server error'
+        type: string
+    type: object
+  internal.UserIdResponse:
+    description: User id info
+    properties:
+      user_id:
+        description: 'example: 9bb4b3f5-201f-4736-a4bc-f6397dc5a57f'
+        type: string
+    type: object
+externalDocs:
+  description: OpenAPI
+info:
+  contact:
+    email: timoshenkovvanya@gmail.com
+    name: Timoshenkov Ivan
+    url: https://t.me/IvanTimoshenkov
+  description: User id info
+  license:
+    name: LICENSE MIT
+  termsOfService: http://swagger.io/terms/
+  title: Auth Service
+  version: "1.0"
+paths:
+  /auth/access/{id}:
+    get:
+      description: Creates new access send refresh token in secured cookie
+      parameters:
+      - description: User GUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal.AccessTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+      summary: Generate access JWT and refresh JWT token
+      tags:
+      - Authentication
+  /auth/me:
+    get:
+      description: Checks user access token and returns user id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal.UserIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Secured endpoint returns user GUID
+      tags:
+      - Authentication
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

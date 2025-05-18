@@ -44,27 +44,44 @@ func NewAuthService(logger *slog.Logger, c *test_medods.Config, pool *postgres.P
 	}
 }
 
-func (a *AuthService) AuthenticateUser(ctx context.Context, tokenString string) (*core.User, error) {
+func (a *AuthService) AuthenticateUser(ctx context.Context, tokenString string, refreshToken string) (*core.User, error) {
 	token, err := a.validateToken(tokenString, a.c.Auth.SecretKey)
 	if err != nil {
 		return nil, err
 	}
+	var refreshTokenParsed *jwt.Token
+	refreshTokenParsed, err = a.validateToken(refreshToken, a.c.Auth.SecretKey)
+	if err != nil {
+		return nil, err
+	}
+
 	claims := token.Claims
 	userId, err := claims.GetSubject()
 	if err != nil {
 		a.logger.Error("Error occured during getting user Id from token")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	issuedAt, err := claims.GetIssuedAt()
+	issuedAtToken, err := claims.GetIssuedAt()
 	if err != nil {
 		a.logger.Error("Error occured during getting issuedAt time from token")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
+	refreshClaims := refreshTokenParsed.Claims
+	issuedAtRefresh, err := refreshClaims.GetIssuedAt()
+	if err != nil {
+		a.logger.Error("Error occured during getting issuedAt time from token")
+		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
+	}
+	if !issuedAtToken.Time.Equal(issuedAtRefresh.Time) {
+		a.logger.Error("Error occured user tried to use tokens from different pairs")
+		return nil, &core.AuthorizationError{Err: errors.New("can not authorize user")}
+	}
+
 	user, err := a.getUserFromDb(ctx, userId)
 	if err != nil {
 		return nil, err
 	}
-	isLoggedOut, _ := a.checkIfUserLoggedOut(user.LastLogout, issuedAt)
+	isLoggedOut, _ := a.checkIfUserLoggedOut(user.LastLogout, issuedAtToken)
 	if isLoggedOut {
 		return nil, &core.ForbiddenError{Err: errors.New(DEFAULT_FORBIDDEN_ERROR_STRING)}
 	}
@@ -119,12 +136,13 @@ func (a *AuthService) checkIfUserLoggedOut(lastLogout *time.Time, issuedAt *jwt.
 }
 
 func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent string, userIp string) (*core.Tokens, error) {
-	access, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
+	iat := time.Now() // в данном случае служит еще и id для проверки, были ли токены выданы одной парой
+	access, err := a.generateJWT(userId, a.c.Auth.AccessTokenExpirePeriodMinutes, a.c.Auth.SecretKey, iat)
 	if err != nil {
 		a.logger.Error("Error occured during access token creating")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
 	}
-	refresh, err := a.generateJWT(userId, a.c.Auth.RefreshTokenExpirePeriodMinutes, a.c.Auth.SecretKey)
+	refresh, err := a.generateJWT(userId, a.c.Auth.RefreshTokenExpirePeriodMinutes, a.c.Auth.SecretKey, iat)
 	if err != nil {
 		a.logger.Error("Error occured during refresh token creating")
 		return nil, &core.InternalError{Err: errors.New(DEFAULT_INTERNAL_ERROR_STRING)}
@@ -161,11 +179,11 @@ func (a *AuthService) CreateTokens(ctx context.Context, userId string, userAgent
 	return &core.Tokens{Access: access, Refresh: refresh}, nil
 }
 
-func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secretKey string) (string, error) {
+func (a *AuthService) generateJWT(userId string, expirePeriodMinutes int, secretKey string, issuedAt time.Time) (string, error) {
 	accessClaims := jwt.RegisteredClaims{
 		Subject:   userId,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * time.Duration(expirePeriodMinutes))),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(issuedAt),
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS512, accessClaims)
 	jwt, err := t.SignedString([]byte(secretKey))
