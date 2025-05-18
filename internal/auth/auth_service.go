@@ -204,7 +204,7 @@ func (a *AuthService) saveRefreshToken(ctx context.Context, tx pgx.Tx, refresh s
 }
 
 func (a *AuthService) getHashFromSign(jwtSign []byte) (string, error) {
-	a.logger.Debug(base64.StdEncoding.EncodeToString(jwtSign))
+	a.logger.Debug("Hashing sign", "token", base64.StdEncoding.EncodeToString(jwtSign))
 	if len(jwtSign) > 70 {
 		jwtSign = jwtSign[:70]
 	}
@@ -368,7 +368,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshTokenString stri
 }
 
 func (a *AuthService) bcryptValidateSign(currentSign []byte, storedSign []byte) (bool, error) {
-	a.logger.Debug(base64.StdEncoding.EncodeToString(currentSign))
+	a.logger.Debug("Validating sign hash", "sign", base64.StdEncoding.EncodeToString(currentSign))
 
 	if len(currentSign) > 70 {
 		currentSign = currentSign[:70]
