@@ -7,11 +7,13 @@ definitions:
         description: 'example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30'
         type: string
     type: object
-  internal.ErrorResponse:
-    description: Error response error
+  internal.MessageResponse:
+    description: Response with message can contain error and another info
     properties:
       message:
-        description: 'example: internal server error'
+        description: |-
+          example: internal server error
+          example: you were unauthorized
         type: string
     type: object
   internal.UserIdResponse:
@@ -54,19 +56,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
       summary: Generate access JWT and refresh JWT token
       tags:
       - Authentication
@@ -83,22 +85,54 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal.ErrorResponse'
+            $ref: '#/definitions/internal.MessageResponse'
       security:
       - BearerAuth: []
       summary: Secured endpoint returns user GUID
+      tags:
+      - Authentication
+  /auth/unauthorize:
+    get:
+      description: Unauthorizing user with current active access token. All refresh
+        tokens and access tokens that were issued before authentication will be revoked
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal.MessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal.MessageResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal.MessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal.MessageResponse'
+      security:
+      - BearerAuth: []
+      summary: Secured endpoint unauthorizing user
       tags:
       - Authentication
 securityDefinitions:

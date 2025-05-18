@@ -52,25 +52,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     }
                 }
@@ -101,25 +101,74 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal.ErrorResponse"
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/unauthorize": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Unauthorizing user with current active access token. All refresh tokens and access tokens that were issued before authentication will be revoked",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Secured endpoint unauthorizing user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
                         }
                     }
                 }
@@ -137,12 +186,12 @@ const docTemplate = `{
                 }
             }
         },
-        "internal.ErrorResponse": {
-            "description": "Error response error",
+        "internal.MessageResponse": {
+            "description": "Response with message can contain error and another info",
             "type": "object",
             "properties": {
                 "message": {
-                    "description": "example: internal server error",
+                    "description": "example: internal server error\nexample: you were unauthorized",
                     "type": "string"
                 }
             }

@@ -8,7 +8,7 @@
 // @contact.url https://t.me/IvanTimoshenkov
 // @license.name LICENSE MIT
 // @externalDocs.description  OpenAPI
-
+// @openapi 3.0.0
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
@@ -28,9 +28,10 @@ import (
 )
 
 // -----STRUCTS FOR SWAGGO------
-// @Description Error response error
-type ErrorResponse struct {
+// @Description Response with message can contain error and another info
+type MessageResponse struct {
 	// example: internal server error
+	// example: you were unauthorized
 	Message string `json:"message"`
 }
 
@@ -86,7 +87,7 @@ func validateError(err error) HTTPErrorMessage {
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Config, auth core.Auth) {
 	mux.HandleFunc("GET /api/v1/auth/access/{id}", accessEndpoint(logger, auth, config))
 	mux.HandleFunc("GET /api/v1/auth/refresh", refreshEndpoint(logger, auth, config))
-	mux.HandleFunc("GET /api/v1/auth/unauthorized", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth, config), auth, logger, config))
+	mux.HandleFunc("GET /api/v1/auth/unauthorize", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth, config), auth, logger, config))
 	mux.HandleFunc("GET /api/v1/auth/me", authenticationMiddleware(getCurrentUserGUIDEndpoint(logger), auth, logger, config))
 
 }
@@ -98,10 +99,10 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Conf
 // @Produce json
 // @Param id path string true "User GUID"
 // @Success 200 {object} AccessTokenResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 403 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 {object} MessageResponse
+// @Failure 401 {object} MessageResponse
+// @Failure 403 {object} MessageResponse
+// @Failure 500 {object} MessageResponse
 // @Router /auth/access/{id} [get]
 func accessEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -178,10 +179,10 @@ func refreshEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config)
 // @Produce json
 // @Security BearerAuth
 // @Success 200 {object} UserIdResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 403 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 {object} MessageResponse
+// @Failure 401 {object} MessageResponse
+// @Failure 403 {object} MessageResponse
+// @Failure 500 {object} MessageResponse
 // @Router /auth/me [get]
 func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -197,18 +198,18 @@ func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 	}
 }
 
-// GetUserGuidEndpoint godoc
+// UnauthorizeUserEndpoint godoc
 // @Summary Secured endpoint unauthorizing user
 // @Description Unauthorizing user with current active access token. All refresh tokens and access tokens that were issued before authentication will be revoked
 // @Tags Authentication
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} UserIdResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 403 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /auth/me [get]
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} MessageResponse
+// @Failure 401 {object} MessageResponse
+// @Failure 403 {object} MessageResponse
+// @Failure 500 {object} MessageResponse
+// @Router /auth/unauthorize [get]
 func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
