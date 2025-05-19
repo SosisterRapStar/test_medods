@@ -69,3 +69,6 @@ auth:
 # How to run
 - `docker compose up -d`
 - `./filler.sh` (to fill the db with test users)
+
+# Docs
+To check the docs use `http://localhost:8888/swagger/index.html`
