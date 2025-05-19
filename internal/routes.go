@@ -137,6 +137,18 @@ func accessEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) 
 	}
 }
 
+// RefreshTokenEndpoint godoc
+// @Summary Secured endpoint returns user GUID
+// @Description Checks user access token and returns user id
+// @Tags Authentication
+// @Produce json
+// @Param Cookie header string true "User refresh token in cookies"
+// @Success 200 {object} AccessTokenResponse
+// @Failure 400 {object} MessageResponse
+// @Failure 401 {object} MessageResponse
+// @Failure 403 {object} MessageResponse
+// @Failure 500 {object} MessageResponse
+// @Router /auth/refresh [get]
 func refreshEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("Refresh endpoint activated")
@@ -168,7 +180,7 @@ func refreshEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config)
 
 		http.SetCookie(w, cookie)
 
-		writeJSON(w, http.StatusOK, map[string]string{"accessToken": tokens.Access})
+		writeJSON(w, http.StatusOK, map[string]string{"access_token": tokens.Access})
 	}
 }
 
@@ -199,8 +211,8 @@ func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 }
 
 // UnauthorizeUserEndpoint godoc
-// @Summary Secured endpoint unauthorizing user
-// @Description Unauthorizing user with current active access token. All refresh tokens and access tokens that were issued before authentication will be revoked
+// @Summary Endpoint for refreshing token
+// @Description Should get refresh token from token and use it for creating new pair of tokens
 // @Tags Authentication
 // @Produce json
 // @Security BearerAuth

@@ -125,6 +125,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/refresh": {
+            "get": {
+                "description": "Checks user access token and returns user id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Secured endpoint returns user GUID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User refresh token in cookies",
+                        "name": "Cookie",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal.AccessTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/unauthorize": {
             "get": {
                 "security": [
@@ -132,14 +185,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Unauthorizing user with current active access token. All refresh tokens and access tokens that were issued before authentication will be revoked",
+                "description": "Should get refresh token from token and use it for creating new pair of tokens",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Authentication"
                 ],
-                "summary": "Secured endpoint unauthorizing user",
+                "summary": "Endpoint for refreshing token",
                 "responses": {
                     "200": {
                         "description": "OK",
