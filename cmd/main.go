@@ -16,7 +16,7 @@ import (
 
 func main() {
 	config := test_medods.MustLoad()
-	logger := test_medods.SetupLogger()
+	logger := test_medods.SetupLogger(config)
 	psConn := postgres.PostgresConnection{}
 	psConn.Open(logger, config)
 

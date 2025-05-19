@@ -57,9 +57,18 @@ func MustLoad() *Config {
 	return &cfg
 }
 
-func SetupLogger() *slog.Logger {
-	log := slog.New(
-		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true}),
-	)
+func SetupLogger(c *Config) *slog.Logger {
+	var log *slog.Logger
+	switch c.Env {
+	case "local":
+		log = slog.New(
+			slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true}),
+		)
+	case "prod":
+		log = slog.New(
+			slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true}),
+		)
+	}
+
 	return log
 }
