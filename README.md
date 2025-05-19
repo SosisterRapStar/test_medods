@@ -45,3 +45,7 @@ auth:
   refresh_token_expire_period_minutes: 1440 
   refresh_token_cookie_name: "medods_app_refresh_token"
 ```
+
+# How to run
+- `docker compose up -d`
+- `./filler.sh` (to fill the db with test users)
