@@ -20,19 +20,21 @@ func main() {
 	psConn := postgres.PostgresConnection{}
 	psConn.Open(logger, config)
 
-	var webhookServce *webhook.IpWebhook
+	var webhookService *webhook.IpWebhook
 	switch config.Auth.IPChangeNotificationWebhook {
 	case "":
-		webhookServce = nil
+		webhookService = nil
 	default:
-		webhookServce = webhook.NewIpWebhook(
+		webhookService = webhook.NewIpWebhook(
 			config.Auth.IPChangeNotificationWebhook,
 			internal.NewHTTPClient(),
 			logger,
 		)
+		logger.Debug("Registered webhook", "struct", webhookService.Endpoint)
+
 	}
 
-	authService := auth.NewAuthService(logger, config, &psConn, webhookServce)
+	authService := auth.NewAuthService(logger, config, &psConn, webhookService)
 
 	server := internal.NewServer(logger, config, authService)
 	server.Start()
