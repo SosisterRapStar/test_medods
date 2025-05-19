@@ -1,6 +1,5 @@
 #!/bin/bash
 
 set -a  
-source .env
-source .goose_env
+source env
 set +a

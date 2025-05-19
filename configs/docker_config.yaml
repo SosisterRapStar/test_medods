@@ -1,0 +1,18 @@
+env: "local" 
+
+http_server:
+  address: "0.0.0.0:8888"
+
+storage:
+  postgres:
+    url: "postgres://user:1234@db:5433/db"
+    max_conns: 10
+    min_conns: 3
+
+auth:
+  secret_key: "23432OLKM3N4JNKJNRKSNDFKNSFNMJ"
+  access_expire_period_minutes: 15  
+  refresh_token_expire_period_minutes: 1440 
+  refresh_token_cookie_name: "medods_app_refresh_token"
+  ip_change_notification_webhook: "http://webhook:9999/api/v1/change_ip_event"
+  

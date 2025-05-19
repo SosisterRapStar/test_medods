@@ -1,0 +1,17 @@
+MIGRATION_PATH=./migrations
+POSTGRES_USER=user
+POSTGRES_PASSWORD=1234
+POSTGRES_DB=db
+
+
+# this settings used in goose cotnainer to run migrations
+GOOSE_DBSTRING=postgres://user:1234@db:5432/db
+GOOSE_DRIVER=postgres
+
+
+# this settings used in docker db
+C_POSTGRES_USER=user
+C_POSTGRES_PASSWORD=1234
+C_POSTGRES_DB=db
+C_POSTGRES_HOST=5432
+C_GOOSE_DBSTRING=postgres://user:1234@db:5432/db

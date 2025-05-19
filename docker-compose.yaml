@@ -1,0 +1,59 @@
+services:
+  db:
+    container_name: db
+    image: postgres:17-alpine
+    ports:
+      - 5433:5432
+    volumes:
+      - ~/db:/var/lib/postgresql/data
+    env_file:
+      - env
+    networks:
+      - app-net
+
+
+  migrate:
+    container_name: migrate
+    image: kukymbr/goose-docker:latest
+    depends_on:
+      - db
+    volumes:
+      - ./migrations:/migrations
+    env_file:
+      - env
+    command: ["-dir", "/migrations", "up"]
+    networks:
+      - app-net
+
+  webhook:
+    container_name: webhook
+    build:
+      context: ./webhook_service
+    ports:
+      - 9999:9999
+    environment:
+      - WEBHOOK_ADDR=0.0.0.0:9999
+    networks:
+      - app-net
+    
+
+  app:
+    container_name: app
+    build:
+      context: .
+    volumes:
+      - ./configs/docker_config.yaml:/auth/config.yaml
+    ports:
+      - 8888:8888
+    
+    depends_on:
+      - migrate
+      - webhook
+
+    networks:
+      - app-net
+    
+  
+networks:
+  app-net:
+    driver: bridge
