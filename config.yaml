@@ -12,4 +12,5 @@ storage:
 auth:
   secret_key: "your-very-secure-secret-key-at-least-32-chars"
   access_expire_period_minutes: 15  
-  refresh_token_expire_period_minutes: 1440  
+  refresh_token_expire_period_minutes: 1440 
+  refresh_token_cookie_name: "medods_app_refresh_token"
