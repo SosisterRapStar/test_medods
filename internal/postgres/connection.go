@@ -6,14 +6,14 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sosisterrapstar/test_medods"
+	tas "github.com/sosisterrapstar/token_auth_service"
 )
 
 type PostgresConnection struct {
 	Pool *pgxpool.Pool
 }
 
-func (pc *PostgresConnection) Open(logger *slog.Logger, c *test_medods.Config) {
+func (pc *PostgresConnection) Open(logger *slog.Logger, c *tas.Config) {
 	pgconfig, err := pgxpool.ParseConfig(c.Postgres.Url)
 	if err != nil {
 		log.Fatal("Error reading dbstring")

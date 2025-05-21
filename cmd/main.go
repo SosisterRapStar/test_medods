@@ -7,16 +7,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sosisterrapstar/test_medods"
-	"github.com/sosisterrapstar/test_medods/internal"
-	"github.com/sosisterrapstar/test_medods/internal/auth"
-	"github.com/sosisterrapstar/test_medods/internal/postgres"
-	"github.com/sosisterrapstar/test_medods/internal/webhook"
+	tas "github.com/sosisterrapstar/token_auth_service"
+	"github.com/sosisterrapstar/token_auth_service/internal"
+	"github.com/sosisterrapstar/token_auth_service/internal/auth"
+	"github.com/sosisterrapstar/token_auth_service/internal/postgres"
+	"github.com/sosisterrapstar/token_auth_service/internal/webhook"
 )
 
 func main() {
-	config := test_medods.MustLoad()
-	logger := test_medods.SetupLogger(config)
+	config := tas.MustLoad()
+	logger := tas.SetupLogger(config)
 	psConn := postgres.PostgresConnection{}
 	psConn.Open(logger, config)
 

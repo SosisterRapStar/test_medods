@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sosisterrapstar/test_medods"
-	"github.com/sosisterrapstar/test_medods/internal/core"
+	tas "github.com/sosisterrapstar/token_auth_service"
+	"github.com/sosisterrapstar/token_auth_service/internal/core"
 )
 
 // -----STRUCTS FOR SWAGGO------
@@ -84,7 +84,7 @@ func validateError(err error) HTTPErrorMessage {
 }
 
 // Not Implemented
-func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Config, auth core.Auth) {
+func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *tas.Config, auth core.Auth) {
 	mux.HandleFunc("GET /api/v1/auth/access/{id}", accessEndpoint(logger, auth, config))
 	mux.HandleFunc("GET /api/v1/auth/refresh", refreshEndpoint(logger, auth, config))
 	mux.HandleFunc("GET /api/v1/auth/unauthorize", authenticationMiddleware(unauthorizeUserEndpoint(logger, auth, config), auth, logger, config))
@@ -104,7 +104,7 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, config *test_medods.Conf
 // @Failure 403 {object} MessageResponse
 // @Failure 500 {object} MessageResponse
 // @Router /auth/access/{id} [get]
-func accessEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
+func accessEndpoint(logger *slog.Logger, auth core.Auth, c *tas.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var tokens *core.Tokens
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -149,7 +149,7 @@ func accessEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) 
 // @Failure 403 {object} MessageResponse
 // @Failure 500 {object} MessageResponse
 // @Router /auth/refresh [get]
-func refreshEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
+func refreshEndpoint(logger *slog.Logger, auth core.Auth, c *tas.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("Refresh endpoint activated")
 		refreshToken := getFromCookies(r, c.Auth.RefreshTokenCookieName)
@@ -222,7 +222,7 @@ func getCurrentUserGUIDEndpoint(logger *slog.Logger) http.HandlerFunc {
 // @Failure 403 {object} MessageResponse
 // @Failure 500 {object} MessageResponse
 // @Router /auth/unauthorize [get]
-func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth, c *test_medods.Config) http.HandlerFunc {
+func unauthorizeUserEndpoint(logger *slog.Logger, auth core.Auth, c *tas.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)

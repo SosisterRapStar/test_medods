@@ -13,10 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sosisterrapstar/test_medods"
-	"github.com/sosisterrapstar/test_medods/internal/core"
-	"github.com/sosisterrapstar/test_medods/internal/postgres"
-	"github.com/sosisterrapstar/test_medods/internal/webhook"
+	tas "github.com/sosisterrapstar/token_auth_service"
+	"github.com/sosisterrapstar/token_auth_service/internal/core"
+	"github.com/sosisterrapstar/token_auth_service/internal/postgres"
+	"github.com/sosisterrapstar/token_auth_service/internal/webhook"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -33,12 +33,12 @@ func startTransaction(ctx context.Context, conn *pgxpool.Conn, isolation pgx.TxI
 
 type AuthService struct {
 	logger *slog.Logger
-	c      *test_medods.Config
+	c      *tas.Config
 	*postgres.PostgresConnection
 	webhook *webhook.IpWebhook
 }
 
-func NewAuthService(logger *slog.Logger, c *test_medods.Config, pool *postgres.PostgresConnection, webhook *webhook.IpWebhook) *AuthService {
+func NewAuthService(logger *slog.Logger, c *tas.Config, pool *postgres.PostgresConnection, webhook *webhook.IpWebhook) *AuthService {
 	return &AuthService{
 		logger:             logger,
 		c:                  c,

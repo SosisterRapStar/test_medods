@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sosisterrapstar/test_medods"
-	"github.com/sosisterrapstar/test_medods/internal/core"
+	tas "github.com/sosisterrapstar/token_auth_service"
+	"github.com/sosisterrapstar/token_auth_service/internal/core"
 )
 
 type userKey int
@@ -22,7 +22,7 @@ func userFromContext(ctx context.Context) (*core.User, bool) {
 }
 
 // Not implemented yet
-func authenticationMiddleware(h http.HandlerFunc, auth core.Auth, logger *slog.Logger, config *test_medods.Config) http.HandlerFunc {
+func authenticationMiddleware(h http.HandlerFunc, auth core.Auth, logger *slog.Logger, config *tas.Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")

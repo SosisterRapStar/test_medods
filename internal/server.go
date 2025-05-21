@@ -9,15 +9,15 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/sosisterrapstar/test_medods"
-	_ "github.com/sosisterrapstar/test_medods/docs"
-	"github.com/sosisterrapstar/test_medods/internal/core"
+	tas "github.com/sosisterrapstar/token_auth_service"
+	_ "github.com/sosisterrapstar/token_auth_service/docs"
+	"github.com/sosisterrapstar/token_auth_service/internal/core"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 func NewServeMuxHandler(
 	logger *slog.Logger,
-	config *test_medods.Config,
+	config *tas.Config,
 	auth core.Auth,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -46,7 +46,7 @@ type Server struct {
 
 func NewServer(
 	logger *slog.Logger,
-	c *test_medods.Config,
+	c *tas.Config,
 	auth core.Auth,
 ) *Server {
 	mux := NewServeMuxHandler(logger, c, auth)

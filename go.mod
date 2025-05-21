@@ -1,4 +1,4 @@
-module github.com/sosisterrapstar/test_medods
+module github.com/sosisterrapstar/token_auth_service
 
 go 1.23.5
 
